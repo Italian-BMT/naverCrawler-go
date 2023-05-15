@@ -5,14 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/PuerkitoBio/goquery"
-	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/credentials"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/chromedp/cdproto/target"
-	"github.com/chromedp/chromedp"
 	"io"
 	"log"
 	"os"
@@ -21,6 +13,15 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/PuerkitoBio/goquery"
+	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/chromedp/cdproto/target"
+	"github.com/chromedp/chromedp"
 )
 
 var (
@@ -76,7 +77,7 @@ func S3Uploader(data []map[string]string, basics BucketBasics, finalFileName str
 	// data가 struct 형태일때는 이상하게 marshal이 되더니, map으로 바꾸니까 한방에 marshal이 잘 됨. 이유가 뭘까?
 	content, err := json.Marshal(data)
 	if err != nil {
-		log.Fatalln("JSON marshaling failed: %s", err)
+		log.Fatalln("JSON marshaling failed: %v", err)
 	}
 
 	// json 바이트 스트림을 S3에 업로드
