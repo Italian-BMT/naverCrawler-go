@@ -1,19 +1,9 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"log"
-	"os"
-	"sort"
-	"strconv"
-	"strings"
-	"sync"
-	"time"
-
 	"github.com/PuerkitoBio/goquery"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -22,6 +12,14 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/chromedp/cdproto/target"
 	"github.com/chromedp/chromedp"
+	"io"
+	"log"
+	"os"
+	"sort"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
 )
 
 var (
@@ -55,7 +53,6 @@ func checkErr(err error) {
 // AWS S3 사용을 위한 credential 설정 & client 생성
 func AWSConfigure() BucketBasics {
 	staticProvider := credentials.NewStaticCredentialsProvider(
-		// 아래 키들은 비활성화 했음...
 		"AWS_KEY",
 		"AWS_SECRET_KEY",
 		"")
@@ -75,16 +72,20 @@ func AWSConfigure() BucketBasics {
 // struct를 json 형태로 변환 후 makingFileName에서 나온 이름으로 S3에 파일 업로드
 func S3Uploader(data []map[string]string, basics BucketBasics, finalFileName string) error {
 	// data가 struct 형태일때는 이상하게 marshal이 되더니, map으로 바꾸니까 한방에 marshal이 잘 됨. 이유가 뭘까?
-	content, err := json.Marshal(data)
+	tmp, err := json.Marshal(data)
 	if err != nil {
-		log.Fatalln("JSON marshaling failed: %v", err)
+		log.Fatalln("JSON marshaling failed: %s", err)
 	}
+	// Elastic에 넣기 위해 데이터 형식 변경
+	justString := string(tmp)
+	content := strings.Replace(justString, "},{", "}\n{", -1)
+	content = strings.Trim(content, "[]")
 
 	// json 바이트 스트림을 S3에 업로드
 	_, err = basics.S3Client.PutObject(context.TODO(), &s3.PutObjectInput{
-		Bucket: aws.String("bucketestmy"),
-		Key:    aws.String("bmt/" + finalFileName),
-		Body:   bytes.NewReader(content),
+		Bucket: aws.String("BucketName"),
+		Key:    aws.String(finalFileName),
+		Body:   strings.NewReader(content),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to upload, %v", err)
@@ -96,8 +97,8 @@ func S3Uploader(data []map[string]string, basics BucketBasics, finalFileName str
 // S3에서 파일 다운로드 후 json 데이터를 파싱하여 golang 자료 구조에 맞게 변환
 func S3Downloader(basics BucketBasics) (map[string][]map[string]interface{}, error) {
 	result, err := basics.S3Client.GetObject(context.TODO(), &s3.GetObjectInput{
-		Bucket: aws.String("bucketestmy"),
-		Key:    aws.String("bmt/subway_information.json"),
+		Bucket: aws.String("BucketName"),
+		Key:    aws.String("Key"),
 	})
 	if err != nil {
 		log.Printf("Couldn't get object. Here's why: %v", err)
@@ -310,3 +311,4 @@ func main() {
 		}
 	}
 }
+
