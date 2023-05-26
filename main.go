@@ -33,14 +33,14 @@ type BucketBasics struct {
 }
 
 // 최종적으로 정보를 저장할 파일 이름(년_월_일_timetable_호선이름.json)을 만드는 함수
-func makingFinalFileName(lineNum string) string {
+func makingFinalFileName(lineNum string) (string, string) {
 	loc, err := time.LoadLocation("Asia/Seoul")
 	checkErr(err)
 	now := time.Now()
 	t := now.In(loc)
 	fileTime := t.Format("2006_01_02")
 	finalFileName := fileTime + "_timetable_" + lineNum + ".json" // s3에 업로드 될 최종 파일 이름
-	return finalFileName
+	return finalFileName, fileTime
 }
 
 // 에러 체킹용 함수
@@ -84,7 +84,7 @@ func S3Uploader(data []map[string]string, basics BucketBasics, finalFileName str
 	// json 바이트 스트림을 S3에 업로드
 	_, err = basics.S3Client.PutObject(context.TODO(), &s3.PutObjectInput{
 		Bucket: aws.String("BucketName"),
-		Key:    aws.String(finalFileName),
+		Key:    aws.String(fileTime + "/" + finalFileName),
 		Body:   strings.NewReader(content),
 	})
 	if err != nil {
@@ -284,12 +284,12 @@ func HandleRequest(_ context.Context) (string, error) {
 		for i := 0; i < len(info)%15; i++ {
 			<-done
 		}
-
+		
 		// 정리한 정보를 json 파일 형식으로 저장 ("년_월_일_timetable_호선이름.json")
-		finalFilename := makingFinalFileName(lineNum)
+		finalFilename, fileTime := makingFinalFileName(lineNum)
 
 		// 파일을 S3에 업로드
-		err := S3Uploader(data, bucktBasics, finalFilename)
+		err := S3Uploader(data, bucktBasics, finalFilename, fileTime)
 		if err != nil {
 			fmt.Printf("S3Uploader failed, %v", err)
 		}
