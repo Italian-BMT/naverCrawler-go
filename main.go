@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -53,13 +54,14 @@ func checkErr(err error) {
 // AWS S3 사용을 위한 credential 설정 & client 생성
 func AWSConfigure() BucketBasics {
 	staticProvider := credentials.NewStaticCredentialsProvider(
-		"AWS_KEY",
-		"AWS_SECRET_KEY",
+		os.Getenv("AWS_BUCKET_ACCESS_KEY"),
+		os.Getenv("AWS_BUCKET_SECRET_KEY"),
 		"")
 
 	sdkConfig, err := config.LoadDefaultConfig(
 		context.Background(),
 		config.WithCredentialsProvider(staticProvider),
+		config.WithRegion(os.Getenv("AWS_REGION")),
 	)
 	checkErr(err)
 
@@ -70,7 +72,7 @@ func AWSConfigure() BucketBasics {
 }
 
 // struct를 json 형태로 변환 후 makingFileName에서 나온 이름으로 S3에 파일 업로드
-func S3Uploader(data []map[string]string, basics BucketBasics, finalFileName string) error {
+func S3Uploader(data []map[string]string, basics BucketBasics, finalFileName string, fileTime string) error {
 	// data가 struct 형태일때는 이상하게 marshal이 되더니, map으로 바꾸니까 한방에 marshal이 잘 됨. 이유가 뭘까?
 	tmp, err := json.Marshal(data)
 	if err != nil {
@@ -83,7 +85,7 @@ func S3Uploader(data []map[string]string, basics BucketBasics, finalFileName str
 
 	// json 바이트 스트림을 S3에 업로드
 	_, err = basics.S3Client.PutObject(context.TODO(), &s3.PutObjectInput{
-		Bucket: aws.String("BucketName"),
+		Bucket: aws.String(os.Getenv("AWS_BUCKET_NAME")),
 		Key:    aws.String(fileTime + "/" + finalFileName),
 		Body:   strings.NewReader(content),
 	})
@@ -97,8 +99,8 @@ func S3Uploader(data []map[string]string, basics BucketBasics, finalFileName str
 // S3에서 파일 다운로드 후 json 데이터를 파싱하여 golang 자료 구조에 맞게 변환
 func S3Downloader(basics BucketBasics) (map[string][]map[string]interface{}, error) {
 	result, err := basics.S3Client.GetObject(context.TODO(), &s3.GetObjectInput{
-		Bucket: aws.String("BucketName"),
-		Key:    aws.String("Key"),
+		Bucket: aws.String(os.Getenv("AWS_BUCKET_NAME")),
+		Key:    aws.String("subway_information.json"),
 	})
 	if err != nil {
 		log.Printf("Couldn't get object. Here's why: %v", err)
@@ -248,7 +250,15 @@ func HandleRequest(_ context.Context) (string, error) {
 	}
 	sort.Strings(targetLines)
 	// Lambda timeout으로 인해 일부만 크롤링: 1호선~5호선 (11분 41초) / 6호선~신림선 (14분 34초)
-	targetLines = targetLines[5:]
+
+	startLine, _ := strconv.Atoi(os.Getenv("START_LINE"))
+	endLine, _ := strconv.Atoi(os.Getenv("END_LINE"))
+
+	if startLine < 0 || endLine > len(targetLines) {
+		return "", errors.New("TARGET_LINES range Error")
+	}
+
+	targetLines = targetLines[startLine:endLine]
 
 	// 각 역의 정보를 바탕으로 크롤링 시작. for문을 돌며 호선 이름과 그 호선에 해당하는 역 정보 가져오고 -> 그거 바탕으로 크롤링
 	var baseURL string = "https://pts.map.naver.com/end-subway/ends/web/"
@@ -284,7 +294,7 @@ func HandleRequest(_ context.Context) (string, error) {
 		for i := 0; i < len(info)%15; i++ {
 			<-done
 		}
-		
+
 		// 정리한 정보를 json 파일 형식으로 저장 ("년_월_일_timetable_호선이름.json")
 		finalFilename, fileTime := makingFinalFileName(lineNum)
 
