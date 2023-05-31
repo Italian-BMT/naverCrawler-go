@@ -66,7 +66,7 @@ jobs:
         
         # Deploy to AWS Lambdas
         targetLines1=($TARGET_LINES_1)
-        aws lambda update-function-code --function-name ${{ env.LAMBDA_FUNCTION_NAME_1 }} --image-uri ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }} --environment "Variables={TARGET_LINES_FROM=${targetLines1[0]},TARGET_LINES_TO=${targetLines1[1]}}"
+        aws lambda update-function-code --function-name ${{ env.LAMBDA_FUNCTION_NAME_1 }} --image-uri ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }} --environment "Variables={START_LINE=${targetLines1[0]},END_LINE=${targetLines1[1]}}"
         
         targetLines2=($TARGET_LINES_2)
-        aws lambda update-function-code --function-name ${{ env.LAMBDA_FUNCTION_NAME_2 }} --image-uri ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }} --environment "Variables={TARGET_LINES_FROM=${targetLines2[0]},TARGET_LINES_TO=${targetLines2[1]}}"
+        aws lambda update-function-code --function-name ${{ env.LAMBDA_FUNCTION_NAME_2 }} --image-uri ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }} --environment "Variables={START_LINE=${targetLines2[0]},END_LINE=${targetLines2[1]}}"
