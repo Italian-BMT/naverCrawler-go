@@ -1,0 +1,72 @@
+name: AWS Lambda Deployment
+
+on:
+  push:
+    branches: [ "main" ]
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  ECR_REPOSITORY: ${{ secrets.AWS_ECR_REPOSITORY }}
+  LAMBDA_FUNCTION_NAME_1: ${{ secrets.AWS_LAMBDA_FUNCTION_NAME_1 }}  
+  LAMBDA_FUNCTION_NAME_2: ${{ secrets.AWS_LAMBDA_FUNCTION_NAME_2 }}  
+  TARGET_LINES_1: "0:4"  # 첫 번째 Lambda의 targetLines 범위 (0부터 4까지)
+  TARGET_LINES_2: "5:-1"  # 두 번째 Lambda의 targetLines 범위 (5부터 끝까지)
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to Lambdas
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+    
+    - name: Generate Environment Variables File for Production
+      run: |
+       echo "AWS_BUCKET_ACCESS_KEY=$AWS_BUCKET_ACCESS_KEY" >> .env.production
+       echo "AWS_BUCKET_SECRET_KEY=$AWS_BUCKET_SECRET_KEY" >> .env.production
+       echo "AWS_BUCKET_NAME=$AWS_BUCKET_BUCKET_NAME" >> .env.production
+       echo "AWS_REGION=$AWS_REGION" >> .env.production
+       echo "TARGET_LINES=$TARGET_LINES_1" >> .env.production 
+       echo "TARGET_LINES=$TARGET_LINES_2" >> .env.production  
+      env:
+        AWS_BUCKET_ACCESS_KEY: ${{ secrets.AWS_BUCKET_ACCESS_KEY }}
+        AWS_BUCKET_SECRET_KEY: ${{ secrets.AWS_BUCKET_SECRET_KEY }}
+        AWS_BUCKET_NAME: ${{ secrets.AWS_BUCKET_NAME }}
+        AWS_REGION: ${{ secrets.AWS_REGION }}
+        TARGET_LINES_1: ${{ env.TARGET_LINES_1 }}
+        TARGET_LINES_2: ${{ env.TARGET_LINES_2 }}  
+        
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v1
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+     
+     
+    - name: Build, tag, and push image to Amazon ECR and deploy to AWS Lambdas
+      id: build-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        # Docker Build & ECR Push
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+        
+        # Deploy to AWS Lambdas
+        targetLines1=($TARGET_LINES_1)
+        aws lambda update-function-code --function-name ${{ env.LAMBDA_FUNCTION_NAME_1 }} --image-uri ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}"
+        
+        targetLines2=($TARGET_LINES_2)
+        aws lambda update-function-code --function-name ${{ env.LAMBDA_FUNCTION_NAME_2 }} --image-uri ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}"
