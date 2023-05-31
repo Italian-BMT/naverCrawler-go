@@ -9,8 +9,8 @@ env:
   ECR_REPOSITORY: ${{ secrets.AWS_ECR_REPOSITORY }}
   LAMBDA_FUNCTION_NAME_1: ${{ secrets.AWS_LAMBDA_FUNCTION_NAME_1 }}  
   LAMBDA_FUNCTION_NAME_2: ${{ secrets.AWS_LAMBDA_FUNCTION_NAME_2 }}  
-  TARGET_LINES_1: "0:4"  # 첫 번째 Lambda의 targetLines 범위 (0부터 4까지)
-  TARGET_LINES_2: "5:-1"  # 두 번째 Lambda의 targetLines 범위 (5부터 끝까지)
+  TARGET_LINES_1: "0 4"  # 첫 번째 Lambda의 targetLines 범위 (0부터 4까지)
+  TARGET_LINES_2: "5 -1"  # 두 번째 Lambda의 targetLines 범위 (5부터 끝까지)
 
 permissions:
   contents: read
@@ -66,7 +66,7 @@ jobs:
         
         # Deploy to AWS Lambdas
         targetLines1=($TARGET_LINES_1)
-        aws lambda update-function-code --function-name ${{ env.LAMBDA_FUNCTION_NAME_1 }} --image-uri ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}"
+        aws lambda update-function-code --function-name ${{ env.LAMBDA_FUNCTION_NAME_1 }} --image-uri ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }} --environment "Variables={TARGET_LINES_FROM=${targetLines1[0]},TARGET_LINES_TO=${targetLines1[1]}}"
         
         targetLines2=($TARGET_LINES_2)
-        aws lambda update-function-code --function-name ${{ env.LAMBDA_FUNCTION_NAME_2 }} --image-uri ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}"
+        aws lambda update-function-code --function-name ${{ env.LAMBDA_FUNCTION_NAME_2 }} --image-uri ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }} --environment "Variables={TARGET_LINES_FROM=${targetLines2[0]},TARGET_LINES_TO=${targetLines2[1]}}"
